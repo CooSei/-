@@ -1,0 +1,284 @@
+# -*- coding: utf-8 -*-
+import sys
+import requests
+from bs4 import BeautifulSoup
+import time,re
+from PIL import Image
+global ss
+import tqdm
+err=0
+ss = requests.session()
+url='https://cas.sysu.edu.cn/cas/login?service=https://uems.sysu.edu.cn/jwxt/api/sso/cas/login?pattern=student-login'
+agent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/62.0.3202.94 Safari/537.36'
+headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+                     "Accept-Encoding": "gzip, deflate",
+                     "Accept-Language": "zh-CN,zh;q=0.9",
+                     "User-Agent":agent,
+                     "Referer": "https://uems.sysu.edu.cn/jwxt/"
+          }
+def getcaptcha(headers):
+    cap_url = 'https://cas.sysu.edu.cn/cas/captcha.jsp'
+    data = ss.get(cap_url,headers = headers)
+    file = open('cap.jpg','wb')
+    file.write(data.content)
+    file.close()
+def getexecution(headers,url):
+    global ss
+    data_2=ss.get(url,headers=headers)
+    bsresult = BeautifulSoup(data_2.text,'lxml')
+    fuck = bsresult.find(attrs={'type':'hidden','name':'execution'})
+    execution= fuck['value']
+    return execution
+def login(name,password,m,execution,url):
+    data = {
+            "username":name,
+            "password":password,
+            "captcha":m,
+            "execution":execution,
+            "_eventId":"submit",
+            "geolocation":""
+            }    
+    r = ss.post(url,headers=headers,data=data)    
+    data = BeautifulSoup(r.text,'lxml')
+    t = data.find(attrs={'class':'alert alert-danger'})    
+    try:
+        if t.text !=None:
+            return True
+    except:
+        return False
+def login_2():
+    urlmark = 'http://uems.sysu.edu.cn/jxgl/casLogin?_tocasurl=forward.action?path=/jwjc.jsp?urlMark=10'
+    i=1
+    while i<=20:
+        try:
+            r = ss.get(urlmark,headers = headers,timeout=10)
+            if r.status_code==200:
+                print('第{}次尝试登陆成功'.format(i))
+                break
+            i+=1
+           
+        except:
+            print('第{}次失败,等待1秒'.format(i))
+            time.sleep(1)
+            i+=1
+    markurl = "https://uems.sysu.edu.cn/jxgl/forward.action?path=/jwjc.jsp?urlMark=10"
+    ss.get(markurl,headers=headers)
+    relocate = "https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/pjsm"
+    ss.get(relocate,headers=headers)
+    ss.get('https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/xspj_list&xnd=2018-2019&xq=1',headers = headers)
+    url = "https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/xspj_list&xnd=2018-2019&xq=1"
+    a = ss.get(url,headers = headers)
+    return a
+def get_list():
+        url = "https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getXspjlist"
+        data = '{header:{"code": -100, "message": {"title": "", "detail": ""}},body:{dataStores:{pj1Stroe:{rowSet:{"primary":[],"filter":[],"delete":[]},name:"pj1Stroe",pageNumber:1,pageSize:200,recordCount:0,rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.PjsyfwModel"}},parameters:{"args": []}}}'
+        headers = {"Accept": "*/*",
+                             "Accept-Encoding": "gzip, deflate",
+                             '__clientType':'unieap',
+                             'ajaxRequest':'true',
+                             "Accept-Language": "zh-cn",
+                             "User-Agent":"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; .NET CLR 2.0.50727; .NET CLR 3.0.30729; .NET CLR 3.5.30729)",
+                             'render':'unieap',
+                             'resourceid':'null',
+                             'workitemid':'null',
+                             'Referer': 'https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/xspj_list&xnd=2017-2018&xq=1',
+                             "Host":"uems.sysu.edu.cn",
+                             "Connection": "Keep-Alive"
+           
+                 }
+        r = ss.post(url,headers=headers,data=data)
+        
+        my_dic=eval(r.text[(r.text.find('primary')+9):-6])
+        count = len(my_dic)
+        return count,my_dic
+def last(i):
+
+        
+    headers = {"Accept": "*/*",
+             "Accept-Encoding": "gzip, deflate",
+             '__clientType':'unieap',
+             'ajaxRequest':'true',
+             "Accept-Language": "zh-cn",
+             "User-Agent":"Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 10.0; WOW64; Trident/7.0; .NET4.0C; .NET4.0E; .NET CLR 2.0.50727; .NET CLR 3.0.30729; .NET CLR 3.5.30729)",
+             'render':'unieap',
+             'resourceid':'null',
+             'workitemid':'null',
+             'Referer': 'https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/jxb_pj',
+             "Host":"uems.sysu.edu.cn",
+             "Connection": "Keep-Alive"
+                    }
+    
+    jxbh = i['jxbh']
+    jsbh = i['jsbh']
+    kch = i['kch']
+    khlx = i['khlx']
+    pjlx = i['pjlx']
+    khtxbh = i['khtxbh']
+    try:        
+        sknr=i['sknr']
+        data = '{header:{"code": -100, "message": {"title": "", "detail": ""}},body:{dataStores:{fxpjlbStroe:{rowSet:{"primary":[],"filter":[],"delete":[]},name:"fxpjlbStroe",pageNumber:1,pageSize:10,recordCount:0,rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.JxjdpjlbModel"}},parameters:{"args": '
+        fir_post_data=str([jxbh,jsbh,kch,khlx,pjlx,khtxbh]) 
+        data = data+fir_post_data+'}}}'
+        url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getJxjdlist'
+        sec_list=ss.post(url,headers=headers,data=data)#小框
+        sec_dic=eval(sec_list.text[sec_list.text.find('primary')+9:-6])
+        try:
+            sec_dic[0]
+            for m in sec_dic:
+                time.sleep(1)#减速
+                
+                headers['Referer']='https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/jxb_pj'
+                data = '{header:{"code": -100,"message": {"title": "", "detail": ""}},\
+                body:{dataStores:{wjStroe:{rowSet:{"primary":[],"filter":[],"delete":[]},\
+                name:"wjStroe",pageNumber:1,pageSize:2147483647,recordCount:0,\
+                rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.WjlyModel",order:" XSSX ASC "}},\
+                parameters:{"args": ["'+khtxbh+'"]}}}'
+                wjxx_url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getWjxx'
+                wj_res = ss.post(wjxx_url,headers=headers,data=data)
+                wtid_dic = eval(wj_res.text[wj_res.text.find('primary')+9:-6])
+                data_list=[]
+                for j in wtid_dic:#提交表单
+                    wtid = j["resourceId"]
+                    data = '{header:{"code": -100, "message": {"title": "", "detail": ""}},\
+                    body:{dataStores:{qzStore:{rowSet:{"primary":[],"filter":[],"delete":[]},\
+                    name:"qzStore",pageNumber:1,pageSize:10,recordCount:0,\
+                    rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.QzModel",order:" NAME ASC "}},\
+                    parameters:{"args": ["'+wtid+'"]}}}'
+                    jg_url='https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getQzlist'
+                    jg_dic = ss.post(jg_url,headers=headers,data=data)
+                    try:
+                        sta_dic = eval(jg_dic.text[jg_dic.text.find('primary')+9:-6])
+                        jg = sta_dic[0]['resourceid']
+                        min_data = {"wtid":wtid,"jg":jg,"gxbh":"","resource_id":"","_t":"1"}
+                    except:
+                        min_data = {"wtid":wtid,"jg":"","gxbh":"","resource_id":"","_t":"1"}
+                    data_list.append(min_data)
+                size = len(data_list)
+                
+                fir_data='{header:{"code": -100, "message": {"title": "", "detail": ""}},body:{dataStores:{fxpjlbStroe:{rowSet:{"primary":['+str(m)
+                sec_data='],"filter":[],"delete":[]},name:"fxpjlbStroe",pageNumber:1,pageSize:10,recordCount:1,rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.JxjdpjlbModel"},itemStore:{rowSet:{"primary":'
+                data_list=str(data_list)                
+                thi_data=',"filter":[],"delete":[]},name:"itemStore",pageNumber:1,pageSize:2147483647,recordCount:'
+                the_len=str(size)
+                fif_data=',rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.entity.DtjglyEntity"}},parameters:{"args": ["ds_itemStore_all", "ds_fxpjlbStroe_all"], "responseParam": "bj"}}}'
+                data=fir_data+sec_data+data_list+thi_data+the_len+fif_data
+                
+                headers['Referer']='https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/jxjdplpj'
+                url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=saveWjxxly'
+                try:
+                    ss.post(url,headers=headers,data=data.encode('utf-8'))
+                except:
+                    pass
+        except:
+                time.sleep(1)#减速
+                headers['Referer']='https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/jxb_pj'
+                data = '{header:{"code": -100,"message": {"title": "", "detail": ""}},\
+                body:{dataStores:{wjStroe:{rowSet:{"primary":[],"filter":[],"delete":[]},\
+                name:"wjStroe",pageNumber:1,pageSize:2147483647,recordCount:0,\
+                rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.WjlyModel",order:" XSSX ASC "}},\
+                parameters:{"args": ["'+khtxbh+'"]}}}'
+                wjxx_url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getWjxx'
+                wj_res = ss.post(wjxx_url,headers=headers,data=data)
+                wtid_dic = eval(wj_res.text[wj_res.text.find('primary')+9:-6])
+                data_list=[]
+                for j in wtid_dic:#提交表单
+                    wtid = j["resourceId"]
+                    data = '{header:{"code": -100, "message": {"title": "", "detail": ""}},\
+                    body:{dataStores:{qzStore:{rowSet:{"primary":[],"filter":[],"delete":[]},\
+                    name:"qzStore",pageNumber:1,pageSize:10,recordCount:0,\
+                    rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.QzModel",order:" NAME ASC "}},\
+                    parameters:{"args": ["'+wtid+'"]}}}'
+                    jg_url='https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getQzlist'
+                    jg_dic = ss.post(jg_url,headers=headers,data=data)
+                    try:
+                        sta_dic = eval(jg_dic.text[jg_dic.text.find('primary')+9:-6])
+                        jg = sta_dic[0]['resourceid']
+                        min_data = {"wtid":wtid,"jg":jg,"gxbh":"","resource_id":"","_t":"1"}
+                    except:
+                        min_data = {"wtid":wtid,"jg":"","gxbh":"","resource_id":"","_t":"1"}
+                    data_list.append(min_data)
+                size = len(data_list)
+                
+                fir_data='{header:{"code": -100, "message": {"title": "", "detail": ""}},body:{dataStores:{fxpjlbStroe:{rowSet:{"primary":['+str(sec_dic)
+                sec_data='],"filter":[],"delete":[]},name:"fxpjlbStroe",pageNumber:1,pageSize:10,recordCount:1,rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.JxjdpjlbModel"},itemStore:{rowSet:{"primary":'
+                data_list=str(data_list)                
+                thi_data=',"filter":[],"delete":[]},name:"itemStore",pageNumber:1,pageSize:2147483647,recordCount:'
+                the_len=str(size)
+                fif_data=',rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.entity.DtjglyEntity"}},parameters:{"args": ["ds_itemStore_all", "ds_fxpjlbStroe_all"], "responseParam": "bj"}}}'
+                data=fir_data+sec_data+data_list+thi_data+the_len+fif_data
+                
+                headers['Referer']='https://uems.sysu.edu.cn/jxgl/forward.action?path=/sysu/wspj/xspj/jxjdplpj'
+                url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=saveWjxxly'
+                try:
+                    ss.post(url,headers=headers,data=data.encode('utf-8'))
+                except:
+                    pass
+    except:
+        
+        data = '{header:{"code": -100,"message": {"title": "", "detail": ""}},\
+                   body:{dataStores:{wjStroe:{rowSet:{"primary":[],"filter":[],"delete":[]},\
+                    name:"wjStroe",pageNumber:1,pageSize:2147483647,recordCount:0,\
+                    rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.WjlyModel",order:" XSSX ASC "}},\
+                parameters:{"args": ["'+khtxbh+'"]}}}'
+        wjxx_url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getWjxx'
+        wj_res = ss.post(wjxx_url,headers=headers,data=data)
+        wtid_dic = eval(wj_res.text[wj_res.text.find('primary')+9:-6])
+        data_list=[]
+        time.sleep(1)#减速
+        for i in wtid_dic:
+            wtid = i["resourceId"]
+            data = '{header:{"code": -100, "message": {"title": "", "detail": ""}},\
+            body:{dataStores:{qzStore:{rowSet:{"primary":[],"filter":[],"delete":[]},\
+            name:"qzStore",pageNumber:1,pageSize:10,recordCount:0,\
+            rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.model.QzModel",order:" NAME ASC "}},\
+            parameters:{"args": ["'+wtid+'"]}}}'
+            jg_url='https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getQzlist'
+            jg_dic = ss.post(jg_url,headers=headers,data=data)
+            try:
+                sta_dic = eval(jg_dic.text[jg_dic.text.find('primary')+9:-6])
+                jg = sta_dic[0]['resourceid']
+                min_data = {"wtid":wtid,"jg":jg,"gxbh":"","resource_id":"","_t":"1"}
+            except:
+                min_data = {"wtid":wtid,"jg":"","gxbh":"","resource_id":"","_t":"1"}
+            data_list.append(min_data)
+        size=str(len(data_list))
+        emm_data=str([jsbh,kch,khlx,jxbh,khtxbh,pjlx])
+        data = '{header:{"code": -100, "message": {"title": "", "detail": ""}},body:{dataStores:{},parameters:{"args": '+emm_data+ ', "responseParam": "bjid"}}}'
+        url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=getPjsyfwbzj'
+        emm = ss.post(url,headers=headers,data=data)
+#        emm=str(emm.text[-30:-17])
+##                emmn=str(emm.text[emm.text.find('bjid')+6:-18])
+        emmn=re.search(r'\d\d\d\d\d\d\d+',emm.text).group()
+        fir_data='{header:{"code": -100, "message": {"title": "", "detail": ""}},body:{dataStores:{itemStore:{rowSet:{"primary":'+str(data_list)
+        sec_data=',"filter":[],"delete":[]},name:"itemStore",pageNumber:1,pageSize:2147483647,recordCount:'+size
+        thi_data=',rowSetName:"pojo_com.neusoft.education.sysu.pj.xspj.entity.DtjglyEntity"}},parameters:{"args": ["ds_itemStore_all", '+emmn+'], "responseParam": "bj"}}}'
+        data = fir_data+sec_data+thi_data
+        headers['Cache-Control']='no-cache'
+        headers['Content-Type']='multipart/form-data'
+        url = 'https://uems.sysu.edu.cn/jxgl/xspjaction/xspjaction.action?method=saveWjxxbyly'
+        try:
+            ss.post(url,headers=headers,data=data.encode('utf-8'))
+        except:
+            pass
+
+ 
+
+            
+if __name__ == "__main__":
+    getcaptcha(headers)
+    execution=getexecution(headers,url)
+    name = input('输入账号：')
+    password = input('输入密码：')
+    img=Image.open('cap.jpg')
+    img.show()
+    m = input('请输入验证码:')
+    login(name,password,m,execution,url)
+    login_2()
+    count,dic = get_list()
+    print('共有%d条数据'%count)
+    for i in tqdm.trange(count,ncols=75):
+        
+        last(dic[i])
+    print('评教完成，请前往评教网站完成剩余部分评教')
+    a = input()
